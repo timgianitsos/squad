@@ -29,6 +29,8 @@ class Embedding(nn.Module):
 
         self.word_embed = nn.Embedding.from_pretrained(word_vectors)
         self.char_embed = nn.Embedding.from_pretrained(char_vectors)
+        self.word_embed.weight.requires_grad = True
+        self.char_embed.weight.requires_grad = True
 
         self.char_conv = nn.Conv2d(1, char_channel_size, (char_vectors.size(1), char_channel_width))
 
