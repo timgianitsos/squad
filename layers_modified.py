@@ -44,7 +44,7 @@ class Embedding(nn.Module):
         char_emb = char_emb.view(-1, char_emb.size(3), char_emb.size(2)).unsqueeze(1) # (batch_size * seq_len, 1, char_embed_size, word_len)
         char_emb = self.char_conv(char_emb).squeeze() # (batch_size * seq_len, char_channel_size, conv_len)
         char_emb = F.max_pool1d(char_emb, char_emb.size(2)).squeeze() # (batch_size * seq_len, char_channel_size)
-        char_emb = char_emb.view(word_emb.size(0), -1, char_emb.size(2)) # (batch_size, seq_len, char_channel_size)
+        char_emb = char_emb.view(word_emb.size(0), -1, char_emb.size(1)) # (batch_size, seq_len, char_channel_size)
 
         emb = torch.cat([char_emb, word_emb], dim=-1) # (batch_size, seq_len, char_channel_size + word_embed_size)
         
