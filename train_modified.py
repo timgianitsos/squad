@@ -43,11 +43,13 @@ def main(args):
     # Get embeddings
     log.info('Loading embeddings...')
     word_vectors = util.torch_from_json(args.word_emb_file)
+    char_vectors = util.torch_from_json(args.char_emb_file)
 
     # Get model
     log.info('Building model...')
     model = BiDAF(word_vectors=word_vectors,
                   hidden_size=args.hidden_size,
+                  char_vectors=char_vectors,
                   drop_prob=args.drop_prob,
                   char_channel_size=100,
                   char_channel_width=4)
