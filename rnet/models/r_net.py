@@ -51,7 +51,7 @@ class RNet(torch.nn.Module):
         self.enable_search = True
 
         # construct model
-        self.embedding = Embedding(word_vectors, hidden_size, drop_prob)
+        self.embedding = GloveEmbeddingNPY(word_vectors, hidden_size, drop_prob)
         # self.char_embedding = Embedding(char_vectors, hidden_size, drop_prob)
 
         # self.char_encoder = CharEncoder(mode=hidden_mode,

@@ -11,6 +11,46 @@ import numpy as np
 from ..dataset.preprocess_data import PreprocessData
 from ..utils.functions import masked_softmax, compute_mask, masked_flip
 
+class GloveEmbeddingNPY(torch.nn.Module):
+    """
+    Glove Embedding Layer, also compute the mask of padding index
+    Args:
+        - dataset_h5_path: glove embedding file path
+    Inputs:
+        **input** (batch, seq_len): sequence with word index
+    Outputs
+        **output** (seq_len, batch, embedding_size): tensor that change word index to word embeddings
+        **mask** (batch, seq_len): tensor that show which index is padding
+    """
+
+    def __init__(self, word_vectors, hidden_size, drop_prob):
+        super(GloveEmbeddingNPY, self).__init__()
+        # self.dataset_h5_path = dataset_h5_path
+        # n_embeddings, len_embedding, weights = self.load_glove_hdf5()
+
+        self.embedding_layer = torch.nn.Embedding(
+            num_embeddings=word_vectors.shape[0],
+            embedding_dim=word_vectors.shape[1],
+            _weight=word_vectors
+        )
+        self.embedding_layer.weight.requires_grad = False
+
+    # def load_glove_hdf5(self):
+    #     with h5py.File(self.dataset_h5_path, 'r') as f:
+    #         f_meta_data = f['meta_data']
+    #         id2vec = np.array(f_meta_data['id2vec'])  # only need 1.11s
+    #         word_dict_size = f.attrs['word_dict_size']
+    #         embedding_size = f.attrs['embedding_size']
+
+    #     return int(word_dict_size), int(embedding_size), torch.from_numpy(id2vec)
+
+    def forward(self, x):
+        mask = compute_mask(x)
+
+        tmp_emb = self.embedding_layer.forward(x)
+        out_emb = tmp_emb.transpose(0, 1)
+
+        return out_emb, mask
 
 class GloveEmbedding(torch.nn.Module):
     """
@@ -50,6 +90,49 @@ class GloveEmbedding(torch.nn.Module):
 
         return out_emb, mask
 
+class CharEmbeddingNPY(torch.nn.Module):
+    """
+    Char Embedding Layer, random weight
+    Args:
+        - dataset_h5_path: char embedding file path
+    Inputs:
+        **input** (batch, seq_len, word_len): word sequence with char index
+    Outputs
+        **output** (batch, seq_len, word_len, embedding_size): tensor contain char embeddings
+        **mask** (batch, seq_len, word_len)
+    """
+    def __init__(self, char_vectors, trainable=False):
+    # def __init__(self, dataset_h5_path, embedding_size, trainable=False):
+        super(CharEmbeddingNPY, self).__init__()
+        # self.dataset_h5_path = dataset_h5_path
+        # n_embedding = self.load_dataset_h5()
+
+        self.embedding_layer = torch.nn.Embedding(
+            num_embeddings=char_vectors.shape[0],
+            embedding_dim=char_vectors.shape[1],
+            padding_idx=0,
+        )
+
+        # Note that cannot directly assign value. When in predict, it's always False.
+        if not trainable:
+            self.embedding_layer.weight.requires_grad = False
+
+    # def load_dataset_h5(self):
+    #     with h5py.File(self.dataset_h5_path, 'r') as f:
+    #         word_dict_size = f.attrs['char_dict_size']
+
+    #     return int(word_dict_size)
+
+    def forward(self, x):
+        batch_size, seq_len, word_len = x.shape
+        x = x.view(-1, word_len)
+
+        mask = compute_mask(x, 0)  # char-level padding idx is zero
+        x_emb = self.embedding_layer.forward(x)
+        x_emb = x_emb.view(batch_size, seq_len, word_len, -1)
+        mask = mask.view(batch_size, seq_len, word_len)
+
+        return x_emb, mask
 
 class CharEmbedding(torch.nn.Module):
     """
