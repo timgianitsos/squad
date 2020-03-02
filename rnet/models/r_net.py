@@ -25,18 +25,16 @@ class RNet(torch.nn.Module):
         ans_range: (batch, 2)
         vis_alpha: to show on visdom
     """
-
-    def __init__(self, dataset_h5_path):
+    def __init__(self, word_vectors, char_vectors, hidden_size, drop_prob=0.):
         super(RNet, self).__init__()
 
         # set config
-        hidden_size = 45
         hidden_mode = 'GRU'
-        dropout_p = 0.2
-        emb_dropout_p = 0.1
+        dropout_p = drop_prob
+        # emb_dropout_p = 0.1 #TODO does using regular dropout_p as a replacement adversely affect anything?
         enable_layer_norm = False
 
-        word_embedding_size = 300
+        word_embedding_size = word_vectors.shape[1]
         char_embedding_size = 64
         encoder_word_layers = 3
         encoder_char_layers = 1
@@ -53,17 +51,15 @@ class RNet(torch.nn.Module):
         self.enable_search = True
 
         # construct model
-        self.embedding = GloveEmbedding(dataset_h5_path=dataset_h5_path)
-        self.char_embedding = CharEmbedding(dataset_h5_path=dataset_h5_path,
-                                            embedding_size=char_embedding_size,
-                                            trainable=True)
+        self.embedding = Embedding(word_vectors, hidden_size, drop_prob)
+        # self.char_embedding = Embedding(char_vectors, hidden_size, drop_prob)
 
-        self.char_encoder = CharEncoder(mode=hidden_mode,
-                                        input_size=char_embedding_size,
-                                        hidden_size=hidden_size,
-                                        num_layers=encoder_char_layers,
-                                        bidirectional=encoder_bidirection,
-                                        dropout_p=emb_dropout_p)
+        # self.char_encoder = CharEncoder(mode=hidden_mode,
+        #                                 input_size=char_embedding_size,
+        #                                 hidden_size=hidden_size,
+        #                                 num_layers=encoder_char_layers,
+        #                                 bidirectional=encoder_bidirection,
+        #                                 dropout_p=dropout_p)
         encode_in_size = word_embedding_size + hidden_size * encoder_direction_num
 
         self.encoder = MyStackedRNN(mode=hidden_mode,
@@ -71,7 +67,7 @@ class RNet(torch.nn.Module):
                                     hidden_size=hidden_size,
                                     num_layers=encoder_word_layers,
                                     bidirectional=encoder_bidirection,
-                                    dropout_p=emb_dropout_p)
+                                    dropout_p=dropout_p)
         encode_out_size = hidden_size * encoder_direction_num
 
         self.match_rnn = MatchRNN(mode=hidden_mode,
@@ -112,22 +108,22 @@ class RNet(torch.nn.Module):
         self.init_ptr_hidden = AttentionPooling(encode_out_size, hidden_size)
 
     def forward(self, context, question, context_char=None, question_char=None, context_f=None, question_f=None):
-        assert context_char is not None and question_char is not None
+        # assert context_char is not None and question_char is not None #TODO reinstate
 
         # word-level embedding: (seq_len, batch, embedding_size)
         context_vec, context_mask = self.embedding.forward(context)
         question_vec, question_mask = self.embedding.forward(question)
 
         # char-level embedding: (seq_len, batch, char_embedding_size)
-        context_emb_char, context_char_mask = self.char_embedding.forward(context_char)
-        question_emb_char, question_char_mask = self.char_embedding.forward(question_char)
+        # context_emb_char, context_char_mask = self.char_embedding.forward(context_char)
+        # question_emb_char, question_char_mask = self.char_embedding.forward(question_char)
 
-        context_vec_char = self.char_encoder.forward(context_emb_char, context_char_mask, context_mask)
-        question_vec_char = self.char_encoder.forward(question_emb_char, question_char_mask, question_mask)
+        # context_vec_char = self.char_encoder.forward(context_emb_char, context_char_mask, context_mask)
+        # question_vec_char = self.char_encoder.forward(question_emb_char, question_char_mask, question_mask)
 
         # mix embedding
-        context_vec = torch.cat((context_vec, context_vec_char), dim=-1)
-        question_vec = torch.cat((question_vec, question_vec_char), dim=-1)
+        # context_vec = torch.cat((context_vec, context_vec_char), dim=-1)
+        # question_vec = torch.cat((question_vec, question_vec_char), dim=-1)
 
         # encode: (seq_len, batch, hidden_size)
         context_encode, _ = self.encoder.forward(context_vec, context_mask)

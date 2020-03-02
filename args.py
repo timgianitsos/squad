@@ -134,6 +134,11 @@ def get_train_args():
                         type=float,
                         default=0.999,
                         help='Decay rate for exponential moving average of parameters.')
+    parser.add_argument('--model',
+                        type=str,
+                        default='bidaf',
+                        choices=('bidaf', 'r-net'),
+                        help='Type of neural architecture to use')
 
     args = parser.parse_args()
 
