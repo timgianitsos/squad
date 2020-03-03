@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from ..dataset.preprocess_data import PreprocessData
-from ..utils.functions import masked_softmax, compute_mask, masked_flip
+from ..utils import functions as uf
 
 class GloveEmbeddingNPY(torch.nn.Module):
     """
@@ -45,7 +45,7 @@ class GloveEmbeddingNPY(torch.nn.Module):
     #     return int(word_dict_size), int(embedding_size), torch.from_numpy(id2vec)
 
     def forward(self, x):
-        mask = compute_mask(x)
+        mask = uf.compute_mask(x)
 
         tmp_emb = self.embedding_layer(x)
         out_emb = tmp_emb.transpose(0, 1)
@@ -83,7 +83,7 @@ class GloveEmbedding(torch.nn.Module):
         return int(word_dict_size), int(embedding_size), torch.from_numpy(id2vec)
 
     def forward(self, x):
-        mask = compute_mask(x)
+        mask = uf.compute_mask(x)
 
         tmp_emb = self.embedding_layer(x)
         out_emb = tmp_emb.transpose(0, 1)
@@ -127,7 +127,7 @@ class CharEmbeddingNPY(torch.nn.Module):
         batch_size, seq_len, word_len = x.shape
         x = x.view(-1, word_len)
 
-        mask = compute_mask(x, 0)  # char-level padding idx is zero
+        mask = uf.compute_mask(x, 0)  # char-level padding idx is zero
         x_emb = self.embedding_layer(x)
         x_emb = x_emb.view(batch_size, seq_len, word_len, -1)
         mask = mask.view(batch_size, seq_len, word_len)
@@ -168,7 +168,7 @@ class CharEmbedding(torch.nn.Module):
         batch_size, seq_len, word_len = x.shape
         x = x.view(-1, word_len)
 
-        mask = compute_mask(x, 0)  # char-level padding idx is zero
+        mask = uf.compute_mask(x, 0)  # char-level padding idx is zero
         x_emb = self.embedding_layer(x)
         x_emb = x_emb.view(batch_size, seq_len, word_len, -1)
         mask = mask.view(batch_size, seq_len, word_len)
@@ -332,7 +332,7 @@ class MatchRNNAttention(torch.nn.Module):
         wg_g = self.linear_wg(G) \
             .squeeze(2) \
             .transpose(0, 1)  # (batch, question_len)
-        alpha = masked_softmax(wg_g, m=Hq_mask, dim=1)  # (batch, question_len)
+        alpha = uf.masked_softmax(wg_g, m=Hq_mask, dim=1)  # (batch, question_len)
         return alpha
 
 
@@ -475,21 +475,21 @@ class MatchRNN(torch.nn.Module):
         rtn_para = {'left': left_para}
 
         if self.bidirectional:
-            Hp_inv = masked_flip(Hp, Hp_mask, flip_dim=0)
+            Hp_inv = uf.masked_flip(Hp, Hp_mask, flip_dim=0)
             right_hidden_inv, right_para_inv = self.right_match_rnn(Hp_inv, Hq, Hq_mask)
 
             # flip back to normal sequence
             right_alpha_inv = right_para_inv['alpha']
             right_alpha_inv = right_alpha_inv.transpose(0, 1)  # make sure right flip
-            right_alpha = masked_flip(right_alpha_inv, Hp_mask, flip_dim=2)
+            right_alpha = uf.masked_flip(right_alpha_inv, Hp_mask, flip_dim=2)
             right_alpha = right_alpha.transpose(0, 1)
 
             right_gated_inv = right_para_inv['gated']
             right_gated_inv = right_gated_inv.transpose(0, 1)
-            right_gated = masked_flip(right_gated_inv, Hp_mask, flip_dim=2)
+            right_gated = uf.masked_flip(right_gated_inv, Hp_mask, flip_dim=2)
             right_gated = right_gated.transpose(0, 1)
 
-            right_hidden = masked_flip(right_hidden_inv, Hp_mask, flip_dim=0)
+            right_hidden = uf.masked_flip(right_hidden_inv, Hp_mask, flip_dim=0)
 
             rtn_para['right'] = {'alpha': right_alpha, 'gated': right_gated}
             rtn_hidden = torch.cat((left_hidden, right_hidden), dim=2)
@@ -531,7 +531,7 @@ class PointerAttention(torch.nn.Module):
             .squeeze(2) \
             .transpose(0, 1)  # (batch, context_len)
 
-        beta = masked_softmax(beta_tmp, m=Hr_mask, dim=1)
+        beta = uf.masked_softmax(beta_tmp, m=Hr_mask, dim=1)
         return beta
 
 
@@ -878,7 +878,7 @@ class AttentionPooling(torch.nn.Module):
             .squeeze(2) \
             .transpose(0, 1)  # (batch, seq_len)
 
-        alpha = masked_softmax(q_s, mask, dim=1)  # (batch, seq_len)
+        alpha = uf.masked_softmax(q_s, mask, dim=1)  # (batch, seq_len)
         rq = torch.bmm(alpha.unsqueeze(1), uq.transpose(0, 1)) \
             .squeeze(1)  # (batch, input_size)
 
@@ -915,7 +915,7 @@ class SelfAttentionGated(torch.nn.Module):
             .squeeze(2) \
             .transpose(0, 1)  # (batch, seq_len)
 
-        gt_prop = masked_softmax(gt, x_mask, dim=1)
+        gt_prop = uf.masked_softmax(gt, x_mask, dim=1)
         gt_prop = gt_prop.transpose(0, 1).unsqueeze(2)  # (seq_len, batch, 1)
         x_gt = x * gt_prop
 
@@ -963,7 +963,7 @@ class SeqToSeqAtten(torch.nn.Module):
         h2 = h2.transpose(0, 1)
 
         alpha = h1.bmm(h2.transpose(1, 2))  # (batch, seq1_len, seq2_len)
-        alpha = masked_softmax(alpha, h2_mask.unsqueeze(1), dim=2)  # (batch, seq1_len, seq2_len)
+        alpha = uf.masked_softmax(alpha, h2_mask.unsqueeze(1), dim=2)  # (batch, seq1_len, seq2_len)
 
         alpha_seq2 = alpha.bmm(h2)  # (batch, seq1_len, hidden_size)
         alpha_seq2 = alpha_seq2.transpose(0, 1)
@@ -997,7 +997,7 @@ class SelfSeqAtten(torch.nn.Module):
         mask = mask.unsqueeze(0)
         alpha.masked_fill_(mask, 0.)
 
-        alpha = masked_softmax(alpha, h_mask.unsqueeze(1), dim=2)
+        alpha = uf.masked_softmax(alpha, h_mask.unsqueeze(1), dim=2)
         alpha_seq = alpha.bmm(h)
 
         alpha_seq = alpha_seq.transpose(0, 1)
@@ -1117,7 +1117,7 @@ class ForwardNet(torch.nn.Module):
         o = self.linear_o(h)
         o = o.squeeze(2).transpose(0, 1)  # (batch, seq_len)
 
-        beta = masked_softmax(o, x_mask, dim=1)
+        beta = uf.masked_softmax(o, x_mask, dim=1)
         return beta
 
 """Assortment of layers for use in models.py.
@@ -1178,7 +1178,7 @@ class Embedding(nn.Module):
         emb = self.proj(emb)  # (batch_size, seq_len, hidden_size)
         emb = self.hwy(emb)   # (batch_size, seq_len, hidden_size)
 
-        return emb, compute_mask(x)
+        return emb, uf.compute_mask(x)
 
 
 class HighwayEncoder(nn.Module):
