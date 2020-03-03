@@ -192,8 +192,8 @@ class BaseModel(torch.nn.Module):
             assert context_f is not None and question_f is not None
 
         # get embedding: (seq_len, batch, embedding_size)
-        context_vec, context_mask = self.embedding.forward(context)
-        question_vec, question_mask = self.embedding.forward(question)
+        context_vec, context_mask = self.embedding(context)
+        question_vec, question_mask = self.embedding(question)
 
         if self.enable_features:
             assert context_f is not None and question_f is not None
@@ -207,19 +207,19 @@ class BaseModel(torch.nn.Module):
 
         # char-level embedding: (seq_len, batch, char_embedding_size)
         if self.enable_char:
-            context_emb_char, context_char_mask = self.char_embedding.forward(context_char)
-            question_emb_char, question_char_mask = self.char_embedding.forward(question_char)
+            context_emb_char, context_char_mask = self.char_embedding(context_char)
+            question_emb_char, question_char_mask = self.char_embedding(question_char)
 
-            context_vec_char = self.char_encoder.forward(context_emb_char, context_char_mask, context_mask)
-            question_vec_char = self.char_encoder.forward(question_emb_char, question_char_mask, question_mask)
+            context_vec_char = self.char_encoder(context_emb_char, context_char_mask, context_mask)
+            question_vec_char = self.char_encoder(question_emb_char, question_char_mask, question_mask)
 
             if self.mix_encode:
                 context_vec = torch.cat((context_vec, context_vec_char), dim=-1)
                 question_vec = torch.cat((question_vec, question_vec_char), dim=-1)
 
         # encode: (seq_len, batch, hidden_size)
-        context_encode, _ = self.encoder.forward(context_vec, context_mask)
-        question_encode, _ = self.encoder.forward(question_vec, question_mask)
+        context_encode, _ = self.encoder(context_vec, context_mask)
+        question_encode, _ = self.encoder(question_vec, question_mask)
 
         # char-level encode: (seq_len, batch, hidden_size)
         if self.enable_char and not self.mix_encode:
@@ -229,24 +229,24 @@ class BaseModel(torch.nn.Module):
         # question match-lstm
         match_rnn_in_question = question_encode
         if self.enable_question_match:
-            ct_aware_qt, _, _ = self.question_match_rnn.forward(question_encode, question_mask,
+            ct_aware_qt, _, _ = self.question_match_rnn(question_encode, question_mask,
                                                                 context_encode, context_mask)
             match_rnn_in_question = ct_aware_qt
 
         # match lstm: (seq_len, batch, hidden_size)
-        qt_aware_ct, qt_aware_last_hidden, match_para = self.match_rnn.forward(context_encode, context_mask,
+        qt_aware_ct, qt_aware_last_hidden, match_para = self.match_rnn(context_encode, context_mask,
                                                                                match_rnn_in_question, question_mask)
         vis_param = {'match': match_para}
 
         # self match lstm: (seq_len, batch, hidden_size)
         if self.enable_self_match:
-            qt_aware_ct, qt_aware_last_hidden, self_para = self.self_match_rnn.forward(qt_aware_ct, context_mask,
+            qt_aware_ct, qt_aware_last_hidden, self_para = self.self_match_rnn(qt_aware_ct, context_mask,
                                                                                        qt_aware_ct, context_mask)
             vis_param['self'] = self_para
 
         # birnn after self match: (seq_len, batch, hidden_size)
         if self.enable_birnn_after_self:
-            qt_aware_ct, _ = self.birnn_after_self.forward(qt_aware_ct, context_mask)
+            qt_aware_ct, _ = self.birnn_after_self(qt_aware_ct, context_mask)
 
         # self gated
         if self.enable_self_gated:
@@ -255,13 +255,13 @@ class BaseModel(torch.nn.Module):
         # pointer net init hidden: (batch, hidden_size)
         ptr_net_hidden = None
         if self.init_ptr_hidden_mode == 'pooling':
-            ptr_net_hidden = self.init_ptr_hidden.forward(question_encode, question_mask)
+            ptr_net_hidden = self.init_ptr_hidden(question_encode, question_mask)
         elif self.init_ptr_hidden_mode == 'linear':
-            ptr_net_hidden = self.init_ptr_hidden.forward(qt_aware_last_hidden)
+            ptr_net_hidden = self.init_ptr_hidden(qt_aware_last_hidden)
             ptr_net_hidden = F.tanh(ptr_net_hidden)
 
         # pointer net: (answer_len, batch, context_len)
-        # ans_range_prop = self.pointer_net.forward(qt_aware_ct, context_mask, ptr_net_hidden)
+        # ans_range_prop = self.pointer_net(qt_aware_ct, context_mask, ptr_net_hidden)
         # ans_range_prop = ans_range_prop.transpose(0, 1)
 
         ans_range_prop = multi_scale_ptr(self.pointer_net, ptr_net_hidden, qt_aware_ct, context_mask, self.scales)

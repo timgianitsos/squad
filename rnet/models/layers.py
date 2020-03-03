@@ -47,7 +47,7 @@ class GloveEmbeddingNPY(torch.nn.Module):
     def forward(self, x):
         mask = compute_mask(x)
 
-        tmp_emb = self.embedding_layer.forward(x)
+        tmp_emb = self.embedding_layer(x)
         out_emb = tmp_emb.transpose(0, 1)
 
         return out_emb, mask
@@ -85,7 +85,7 @@ class GloveEmbedding(torch.nn.Module):
     def forward(self, x):
         mask = compute_mask(x)
 
-        tmp_emb = self.embedding_layer.forward(x)
+        tmp_emb = self.embedding_layer(x)
         out_emb = tmp_emb.transpose(0, 1)
 
         return out_emb, mask
@@ -128,7 +128,7 @@ class CharEmbeddingNPY(torch.nn.Module):
         x = x.view(-1, word_len)
 
         mask = compute_mask(x, 0)  # char-level padding idx is zero
-        x_emb = self.embedding_layer.forward(x)
+        x_emb = self.embedding_layer(x)
         x_emb = x_emb.view(batch_size, seq_len, word_len, -1)
         mask = mask.view(batch_size, seq_len, word_len)
 
@@ -169,7 +169,7 @@ class CharEmbedding(torch.nn.Module):
         x = x.view(-1, word_len)
 
         mask = compute_mask(x, 0)  # char-level padding idx is zero
-        x_emb = self.embedding_layer.forward(x)
+        x_emb = self.embedding_layer(x)
         x_emb = x_emb.view(batch_size, seq_len, word_len, -1)
         mask = mask.view(batch_size, seq_len, word_len)
 
@@ -203,7 +203,7 @@ class CharEncoder(torch.nn.Module):
         x = x.transpose(0, 1)
         char_mask = char_mask.view(-1, word_len)
 
-        _, x_encode = self.encoder.forward(x, char_mask)  # (batch*seq_len, hidden_size)
+        _, x_encode = self.encoder(x, char_mask)  # (batch*seq_len, hidden_size)
         x_encode = x_encode.view(batch_size, seq_len, -1)  # (batch, seq_len, hidden_size)
         x_encode = x_encode * word_mask.unsqueeze(-1)
 
@@ -405,7 +405,7 @@ class UniMatchRNN(torch.nn.Module):
             cur_hp = Hp[t, ...]  # (batch, input_size)
             attention_input = hidden[t][0] if self.mode == 'LSTM' else hidden[t]
 
-            alpha = self.attention.forward(cur_hp, Hq, attention_input, Hq_mask)  # (batch, question_len)
+            alpha = self.attention(cur_hp, Hq, attention_input, Hq_mask)  # (batch, question_len)
             vis_alpha.append(alpha)
 
             question_alpha = torch.bmm(alpha.unsqueeze(1), Hq.transpose(0, 1)) \
@@ -414,7 +414,7 @@ class UniMatchRNN(torch.nn.Module):
 
             # gated
             if self.gated_attention:
-                gate = F.sigmoid(self.gated_linear.forward(cur_z))
+                gate = F.sigmoid(self.gated_linear(cur_z))
                 vis_gated.append(gate.squeeze(-1))
                 cur_z = gate * cur_z
 
@@ -422,7 +422,7 @@ class UniMatchRNN(torch.nn.Module):
             if self.enable_layer_norm:
                 cur_z = self.layer_norm(cur_z)  # (batch, rnn_in_size)
 
-            cur_hidden = self.hidden_cell.forward(cur_z, hidden[t])  # (batch, hidden_size), when lstm output tuple
+            cur_hidden = self.hidden_cell(cur_z, hidden[t])  # (batch, hidden_size), when lstm output tuple
             hidden.append(cur_hidden)
 
         vis_para['gated'] = torch.stack(vis_gated, dim=-1)  # (batch, context_len)
@@ -470,13 +470,13 @@ class MatchRNN(torch.nn.Module):
         Hp = self.dropout(Hp)
         Hq = self.dropout(Hq)
 
-        left_hidden, left_para = self.left_match_rnn.forward(Hp, Hq, Hq_mask)
+        left_hidden, left_para = self.left_match_rnn(Hp, Hq, Hq_mask)
         rtn_hidden = left_hidden
         rtn_para = {'left': left_para}
 
         if self.bidirectional:
             Hp_inv = masked_flip(Hp, Hp_mask, flip_dim=0)
-            right_hidden_inv, right_para_inv = self.right_match_rnn.forward(Hp_inv, Hq, Hq_mask)
+            right_hidden_inv, right_para_inv = self.right_match_rnn(Hp_inv, Hq, Hq_mask)
 
             # flip back to normal sequence
             right_alpha_inv = right_para_inv['alpha']
@@ -615,7 +615,7 @@ class UniBoundaryPointer(torch.nn.Module):
 
         for t in range(self.answer_len):
             attention_input = hidden[0] if self.mode == 'LSTM' else hidden
-            beta = self.attention.forward(Hr, Hr_mask, attention_input)  # (batch, context_len)
+            beta = self.attention(Hr, Hr_mask, attention_input)  # (batch, context_len)
             beta_out.append(beta)
 
             context_beta = torch.bmm(beta.unsqueeze(1), Hr.transpose(0, 1)) \
@@ -624,7 +624,7 @@ class UniBoundaryPointer(torch.nn.Module):
             if self.enable_layer_norm:
                 context_beta = self.layer_norm(context_beta)  # (batch, input_size)
 
-            hidden = self.hidden_cell.forward(context_beta, hidden)  # (batch, hidden_size), (batch, hidden_size)
+            hidden = self.hidden_cell(context_beta, hidden)  # (batch, hidden_size), (batch, hidden_size)
 
         result = torch.stack(beta_out, dim=0)
         return result, hidden
@@ -659,12 +659,12 @@ class BoundaryPointer(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout_p)
 
     def forward(self, Hr, Hr_mask, h_0=None):
-        Hr = self.dropout.forward(Hr)
+        Hr = self.dropout(Hr)
 
-        left_beta, _ = self.left_ptr_rnn.forward(Hr, Hr_mask, h_0)
+        left_beta, _ = self.left_ptr_rnn(Hr, Hr_mask, h_0)
         rtn_beta = left_beta
         if self.bidirectional:
-            right_beta_inv, _ = self.right_ptr_rnn.forward(Hr, Hr_mask, h_0)
+            right_beta_inv, _ = self.right_ptr_rnn(Hr, Hr_mask, h_0)
             right_beta = right_beta_inv[[1, 0], :]
 
             rtn_beta = (left_beta + right_beta) / 2
@@ -702,11 +702,11 @@ class MultiHopBdPointer(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout_p)
 
     def forward(self, Hr, Hr_mask, h_0=None):
-        Hr = self.dropout.forward(Hr)
+        Hr = self.dropout(Hr)
 
         beta_last = None
         for i in range(self.num_hops):
-            beta, h_0 = self.ptr_rnn.forward(Hr, Hr_mask, h_0)
+            beta, h_0 = self.ptr_rnn(Hr, Hr_mask, h_0)
             if beta_last is not None and (beta_last == beta).sum().item() == beta.shape[0]:  # beta not changed
                 break
 
@@ -793,10 +793,10 @@ class MyRNNBase(torch.nn.Module):
         v_sort = v.index_select(1, idx_sort)
 
         v_pack = torch.nn.utils.rnn.pack_padded_sequence(v_sort, lengths_sort)
-        v_dropout = self.dropout.forward(v_pack.data)
+        v_dropout = self.dropout(v_pack.data)
         v_pack_dropout = torch.nn.utils.rnn.PackedSequence(v_dropout, v_pack.batch_sizes)
 
-        o_pack_dropout, _ = self.hidden.forward(v_pack_dropout)
+        o_pack_dropout, _ = self.hidden(v_pack_dropout)
         o, _ = torch.nn.utils.rnn.pad_packed_sequence(o_pack_dropout)
 
         # unsorted o
@@ -842,7 +842,7 @@ class MyStackedRNN(torch.nn.Module):
     def forward(self, v, mask):
         v_last = None
         for i in range(self.num_layers):
-            v, v_last = self.rnn_list[i].forward(v, mask)
+            v, v_last = self.rnn_list[i](v, mask)
 
         return v, v_last
 
@@ -911,7 +911,7 @@ class SelfAttentionGated(torch.nn.Module):
 
     def forward(self, x, x_mask):
         g_tanh = F.tanh(self.linear_g(x))
-        gt = self.linear_t.forward(g_tanh) \
+        gt = self.linear_t(g_tanh) \
             .squeeze(2) \
             .transpose(0, 1)  # (batch, seq_len)
 

@@ -365,7 +365,7 @@ def multi_scale_ptr(ptr_net, ptr_init_h, hr, hr_mask, scales):
         down_hr = hr[down_idx]
         down_hr_mask = hr_mask[:, down_idx]
 
-        down_ans_range_prop = ptr_net[si].forward(down_hr, down_hr_mask, ptr_init_h)    # (answer_len, batch, seq_len)
+        down_ans_range_prop = ptr_net[si](down_hr, down_hr_mask, ptr_init_h)    # (answer_len, batch, seq_len)
 
         # up sampling
         down_seq_len = down_ans_range_prop.shape[2]

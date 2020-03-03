@@ -97,23 +97,23 @@ class MReader(torch.nn.Module):
         question_f = question_f.transpose(0, 1)
 
         # word-level embedding: (seq_len, batch, word_embedding_size)
-        context_vec, context_mask = self.embedding.forward(context)
-        question_vec, question_mask = self.embedding.forward(question)
+        context_vec, context_mask = self.embedding(context)
+        question_vec, question_mask = self.embedding(question)
 
         # char-level embedding: (seq_len, batch, char_embedding_size)
-        context_emb_char, context_char_mask = self.char_embedding.forward(context_char)
-        question_emb_char, question_char_mask = self.char_embedding.forward(question_char)
+        context_emb_char, context_char_mask = self.char_embedding(context_char)
+        question_emb_char, question_char_mask = self.char_embedding(question_char)
 
-        context_vec_char = self.char_encoder.forward(context_emb_char, context_char_mask, context_mask)
-        question_vec_char = self.char_encoder.forward(question_emb_char, question_char_mask, question_mask)
+        context_vec_char = self.char_encoder(context_emb_char, context_char_mask, context_mask)
+        question_vec_char = self.char_encoder(question_emb_char, question_char_mask, question_mask)
 
         # mix embedding: (seq_len, batch, embedding_size)
         context_vec = torch.cat((context_vec, context_vec_char, context_f), dim=-1)
         question_vec = torch.cat((question_vec, question_vec_char, question_f), dim=-1)
 
         # encode: (seq_len, batch, hidden_size*2)
-        context_encode, _ = self.encoder.forward(context_vec, context_mask)
-        question_encode, zs = self.encoder.forward(question_vec, question_mask)
+        context_encode, _ = self.encoder(context_vec, context_mask)
+        question_encode, zs = self.encoder(question_vec, question_mask)
 
         align_ct = context_encode
         for i in range(self.num_align_hops):
