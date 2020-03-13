@@ -31,11 +31,11 @@ class RNet(torch.nn.Module):
         # set config
         hidden_mode = 'GRU'
         dropout_p = drop_prob
-        # emb_dropout_p = 0.1 #TODO does using regular dropout_p as a replacement adversely affect anything?
+        emb_dropout_p = 0.1
         enable_layer_norm = False
 
         word_embedding_size = word_vectors.shape[1]
-        char_embedding_size = 64
+        char_embedding_size = char_vectors.shape[1]
         encoder_word_layers = 3
         encoder_char_layers = 1
 
@@ -51,15 +51,15 @@ class RNet(torch.nn.Module):
         self.enable_search = True
 
         # construct model
-        self.embedding = Embedding(word_vectors, hidden_size, drop_prob)
-        self.char_embedding = Embedding(char_vectors, hidden_size, drop_prob)
+        self.embedding = GloveEmbeddingNPY(word_vectors, hidden_size, drop_prob)
+        self.char_embedding = CharEmbeddingNPY(char_vectors, hidden_size, drop_prob)
 
         self.char_encoder = CharEncoder(mode=hidden_mode,
                                         input_size=char_embedding_size,
                                         hidden_size=hidden_size,
                                         num_layers=encoder_char_layers,
                                         bidirectional=encoder_bidirection,
-                                        dropout_p=dropout_p)
+                                        dropout_p=emb_dropout_p)
         encode_in_size = word_embedding_size + hidden_size * encoder_direction_num
 
         self.encoder = MyStackedRNN(mode=hidden_mode,
@@ -67,7 +67,7 @@ class RNet(torch.nn.Module):
                                     hidden_size=hidden_size,
                                     num_layers=encoder_word_layers,
                                     bidirectional=encoder_bidirection,
-                                    dropout_p=dropout_p)
+                                    dropout_p=emb_dropout_p)
         encode_out_size = hidden_size * encoder_direction_num
 
         self.match_rnn = MatchRNN(mode=hidden_mode,

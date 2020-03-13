@@ -101,7 +101,7 @@ class CharEmbeddingNPY(torch.nn.Module):
         **output** (batch, seq_len, word_len, embedding_size): tensor contain char embeddings
         **mask** (batch, seq_len, word_len)
     """
-    def __init__(self, char_vectors, trainable=False):
+    def __init__(self, char_vectors, hidden_size, drop_prob, trainable=True):
     # def __init__(self, dataset_h5_path, embedding_size, trainable=False):
         super(CharEmbeddingNPY, self).__init__()
         # self.dataset_h5_path = dataset_h5_path
