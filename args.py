@@ -137,7 +137,7 @@ def get_train_args():
     parser.add_argument('--model',
                         type=str,
                         default='bidaf',
-                        choices=('bidaf', 'r-net'),
+                        choices=('BiDAF', 'RNet', 'QANet'),
                         help='Type of neural architecture to use')
 
     args = parser.parse_args()

@@ -4,6 +4,7 @@ Author:
     Chris Chute (chute@stanford.edu)
 """
 
+import subprocess
 import numpy as np
 import random
 import torch
@@ -19,6 +20,7 @@ from collections import OrderedDict
 from json import dumps
 from models import BiDAF
 from rnet.models.r_net import RNet
+from qanet.QANet import QANet
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 from ujson import load as json_load
@@ -31,6 +33,9 @@ def main(args):
     log = util.get_logger(args.save_dir, args.name)
     tbx = SummaryWriter(args.save_dir)
     device, args.gpu_ids = util.get_available_devices()
+    args.commit_hash = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, universal_newlines=True
+    ).stdout.strip()
     log.info(f'Args: {dumps(vars(args), indent=4, sort_keys=True)}')
     args.batch_size *= max(1, len(args.gpu_ids))
 
@@ -48,16 +53,13 @@ def main(args):
 
     # Get model
     log.info('Building model...')
-    model = BiDAF(
-        word_vectors=word_vectors,
-        hidden_size=args.hidden_size,
-        drop_prob=args.drop_prob
-    ) if args.model == 'bidaf' else RNet(
+    model = globals()[args.model](
         word_vectors=word_vectors,
         char_vectors=char_vectors,
         hidden_size=args.hidden_size,
         drop_prob=args.drop_prob,
     )
+
     model = nn.DataParallel(model, args.gpu_ids)
     if args.load_path:
         log.info(f'Loading checkpoint from {args.load_path}...')
@@ -112,7 +114,7 @@ def main(args):
                 optimizer.zero_grad()
 
                 # Forward
-                log_p1, log_p2 = model(cw_idxs, qw_idxs) if args.model == 'bidaf' else model(cw_idxs, qw_idxs, cc_idxs, qc_idxs)
+                log_p1, log_p2 = model(cw_idxs, qw_idxs, cc_idxs, qc_idxs)
                 y1, y2 = y1.to(device), y2.to(device)
                 loss = F.nll_loss(log_p1, y1) + F.nll_loss(log_p2, y2)
                 loss_val = loss.item()

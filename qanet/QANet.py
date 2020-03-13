@@ -3,6 +3,7 @@
 Main model architecture.
 reference: https://github.com/andy840314/QANet-pytorch-
 """
+# pylint: disable = W,R,C
 import math
 import numpy as np
 import torch
@@ -52,7 +53,7 @@ def PosEncoder(x, min_timescale=1.0, max_timescale=1.0e4):
     length = x.size()[1]
     channels = x.size()[2]
     signal = get_timing_signal(length, channels, min_timescale, max_timescale)
-    return (x + signal.to(x.get_device())).transpose(1, 2)
+    return (x + signal.to(x.get_device() if torch.cuda.is_available() else torch.device('cpu'))).transpose(1, 2)
 
 
 def get_timing_signal(length, channels,
@@ -318,17 +319,17 @@ class Pointer(nn.Module):
 
 
 class QANet(nn.Module):
-    def __init__(self, word_mat, char_mat,
-                 c_max_len, q_max_len, d_model, train_cemb=False, pad=0,
-                 dropout=0.1, num_head=1):  # !!! notice: set it to be a config parameter later.
+    def __init__(self, word_vectors, char_vectors, hidden_size,
+                 c_max_len=400, q_max_len=50, d_model=128, train_cemb=False, pad=0,
+                 drop_prob=0.1, num_head=1):  # !!! notice: set it to be a config parameter later.
         super().__init__()
         if train_cemb:
-            self.char_emb = nn.Embedding.from_pretrained(char_mat, freeze=False)
+            self.char_emb = nn.Embedding.from_pretrained(char_vectors, freeze=False)
         else:
-            self.char_emb = nn.Embedding.from_pretrained(char_mat)
-        self.word_emb = nn.Embedding.from_pretrained(word_mat)
-        wemb_dim = word_mat.shape[1]
-        cemb_dim = char_mat.shape[1]
+            self.char_emb = nn.Embedding.from_pretrained(char_vectors)
+        self.word_emb = nn.Embedding.from_pretrained(word_vectors)
+        wemb_dim = word_vectors.shape[1]
+        cemb_dim = char_vectors.shape[1]
         self.emb = Embedding(wemb_dim, cemb_dim, d_model)
         self.num_head = num_head
         self.emb_enc = EncoderBlock(conv_num=4, d_model=d_model, num_head=num_head, k=7, dropout=0.1)
@@ -339,9 +340,9 @@ class QANet(nn.Module):
         self.PAD = pad
         self.Lc = c_max_len
         self.Lq = q_max_len
-        self.dropout = dropout
+        self.dropout = drop_prob
 
-    def forward(self, Cwid, Ccid, Qwid, Qcid):
+    def forward(self, Cwid, Qwid, Ccid, Qcid):
         maskC = (torch.ones_like(Cwid) *
                  self.PAD != Cwid).float()
         maskQ = (torch.ones_like(Qwid) *
