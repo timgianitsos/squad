@@ -366,13 +366,36 @@ class QANet(nn.Module):
              M0 = blk(M0, maskC, i*(2+2)+1, 7)
         M3 = M0
         p1, p2 = self.out(M1, M2, M3, maskC)
-        return p1, p2
+        log_p1 = masked_softmax(p1.squeeze(), maskC, log_softmax=True)
+        log_p2 = masked_softmax(p2.squeeze(), maskC, log_softmax=True)
+        return log_p1, log_p2
 
     def summary(self):
         model_parameters = filter(lambda p: p.requires_grad, self.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
         print('Trainable parameters:', params)
 
+def masked_softmax(logits, mask, dim=-1, log_softmax=False):
+    """Take the softmax of `logits` over given dimension, and set
+    entries to 0 wherever `mask` is 0.
+
+    Args:
+        logits (torch.Tensor): Inputs to the softmax function.
+        mask (torch.Tensor): Same shape as `logits`, with 0 indicating
+            positions that should be assigned 0 probability in the output.
+        dim (int): Dimension over which to take softmax.
+        log_softmax (bool): Take log-softmax rather than regular softmax.
+            E.g., some PyTorch functions such as `F.nll_loss` expect log-softmax.
+
+    Returns:
+        probs (torch.Tensor): Result of taking masked softmax over the logits.
+    """
+    mask = mask.type(torch.float32)
+    masked_logits = mask * logits + (1 - mask) * -1e30
+    softmax_fn = F.log_softmax if log_softmax else F.softmax
+    probs = softmax_fn(masked_logits, dim)
+
+    return probs
 
 if __name__ == "__main__":
     torch.manual_seed(12)

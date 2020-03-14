@@ -3,16 +3,16 @@
 Author:
     Chris Chute (chute@stanford.edu)
 """
-
+#pylint: disable = W,R,C
 import subprocess
 import numpy as np
 import random
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torch.optim.lr_scheduler as sched
-import torch.utils.data as data
+import torch #pylint:disable=import-error
+import torch.nn as nn #pylint:disable=import-error
+import torch.nn.functional as F #pylint:disable=import-error
+import torch.optim as optim #pylint:disable=import-error
+import torch.optim.lr_scheduler as sched #pylint:disable=import-error
+import torch.utils.data as data #pylint:disable=import-error
 import util
 
 from args import get_train_args
@@ -21,9 +21,9 @@ from json import dumps
 from models import BiDAF
 from rnet.models.r_net import RNet
 from qanet.QANet import QANet
-from tensorboardX import SummaryWriter
+from tensorboardX import SummaryWriter #pylint:disable=import-error
 from tqdm import tqdm
-from ujson import load as json_load
+from ujson import load as json_load #pylint:disable=import-error
 from util import collate_fn, SQuAD
 
 
