@@ -134,11 +134,6 @@ def get_train_args():
                         type=float,
                         default=0.999,
                         help='Decay rate for exponential moving average of parameters.')
-    parser.add_argument('--model',
-                        type=str,
-                        default='bidaf',
-                        choices=('BiDAF', 'RNet', 'QANet'),
-                        help='Type of neural architecture to use')
 
     args = parser.parse_args()
 
@@ -247,3 +242,8 @@ def add_train_test_args(parser):
                         type=str,
                         default=None,
                         help='Path to load as a model checkpoint.')
+    parser.add_argument('--model',
+                        type=str,
+                        default='BiDAF',
+                        choices=('BiDAF', 'RNet', 'QANet'),
+                        help='Type of neural architecture to use')

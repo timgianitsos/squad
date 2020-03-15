@@ -10,29 +10,36 @@ Usage:
 Author:
     Chris Chute (chute@stanford.edu)
 """
+#pylint: disable = W,R,C
 
+import subprocess
 import csv
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.utils.data as data
-import util
-
-from args import get_test_args
 from collections import OrderedDict
-from json import dumps
-from models import BiDAF
 from os.path import join
-from tensorboardX import SummaryWriter
-from tqdm import tqdm
-from ujson import load as json_load
-from util import collate_fn, SQuAD
+from json import dumps
 
+from tqdm import tqdm
+import torch #pylint:disable=import-error
+import torch.nn as nn #pylint:disable=import-error
+import torch.nn.functional as F #pylint:disable=import-error
+import torch.utils.data as data #pylint:disable=import-error
+from tensorboardX import SummaryWriter #pylint:disable=import-error
+from ujson import load as json_load #pylint:disable=import-error
+
+import util
+from util import collate_fn, SQuAD
+from args import get_test_args
+from models import BiDAF
+from rnet.models.r_net import RNet
+from qanet.QANet import QANet
 
 def main(args):
     # Set up logging
     args.save_dir = util.get_save_dir(args.save_dir, args.name, training=False)
     log = util.get_logger(args.save_dir, args.name)
+    args.commit_hash = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, universal_newlines=True
+    ).stdout.strip()
     log.info(f'Args: {dumps(vars(args), indent=4, sort_keys=True)}')
     device, gpu_ids = util.get_available_devices()
     args.batch_size *= max(1, len(gpu_ids))
@@ -40,11 +47,16 @@ def main(args):
     # Get embeddings
     log.info('Loading embeddings...')
     word_vectors = util.torch_from_json(args.word_emb_file)
+    char_vectors = util.torch_from_json(args.char_emb_file)
 
     # Get model
     log.info('Building model...')
-    model = BiDAF(word_vectors=word_vectors,
-                  hidden_size=args.hidden_size)
+    model = globals()[args.model](
+        word_vectors=word_vectors,
+        char_vectors=char_vectors,
+        hidden_size=args.hidden_size,
+    )
+
     model = nn.DataParallel(model, gpu_ids)
     log.info(f'Loading checkpoint from {args.load_path}...')
     model = util.load_model(model, args.load_path, gpu_ids, return_step=False)
@@ -78,7 +90,7 @@ def main(args):
             batch_size = cw_idxs.size(0)
 
             # Forward
-            log_p1, log_p2 = model(cw_idxs, qw_idxs)
+            log_p1, log_p2 = model(cw_idxs, qw_idxs, cc_idxs, qc_idxs)
             y1, y2 = y1.to(device), y2.to(device)
             loss = F.nll_loss(log_p1, y1) + F.nll_loss(log_p2, y2)
             nll_meter.update(loss.item(), batch_size)
