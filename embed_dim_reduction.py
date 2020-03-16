@@ -6,7 +6,7 @@ import sys
 import types
 
 import torch.nn as nn
-from sklearn.decomposition import PCA, KernelPCA
+from sklearn.decomposition import PCA, KernelPCA, FastICA
 from sklearn.manifold import Isomap
 import ujson as json #pylint:disable=import-error
 
@@ -68,6 +68,20 @@ def kernel_pca_dim_reduce():
     pca = KernelPCA(n_components=new_len)
     res = pca.fit_transform(w_embed)
     output_f = f'./data/word_emb_kernel_pca_reduce_{new_len}.json'
+    print(f'Dumping json to {output_f}...')
+    with open(output_f, 'w') as json_out:
+        json.dump(res.tolist(), json_out)
+    print('Success!')
+
+def ica_dim_reduce():
+    '''Reduce the word vector dimensions by half using kernel PCA'''
+    print('Loading word vectors...')
+    w_embed = util.torch_from_json('./data/word_emb.json')
+    new_len = w_embed.shape[1] // 2
+    print(f'Performing ICA to reduce dimensions from {w_embed.shape[1]} to {new_len}...')
+    pca = FastICA(n_components=new_len)
+    res = pca.fit_transform(w_embed)
+    output_f = f'./data/word_emb_ica_reduce_{new_len}.json'
     print(f'Dumping json to {output_f}...')
     with open(output_f, 'w') as json_out:
         json.dump(res.tolist(), json_out)
